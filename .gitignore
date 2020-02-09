@@ -85,3 +85,6 @@ encodings.xml
 misc.xml
 Project.xml
 runConfigurations.xml
+compiler.xml
+
+gradle-wrapper.jar

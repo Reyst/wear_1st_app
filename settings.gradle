@@ -1,2 +1,2 @@
 include ':mobile', ':wear'
-rootProject.name='first app'
+rootProject.name='1st app'
