@@ -26,6 +26,7 @@ class MainActivity : AppCompatActivity() {
 
         startWearApp()
 
+        Log.d("INSPECT", ":::::: IsTablet from Resource - ${this.isTablet()}")
     }
 
     private fun startWearApp() {
