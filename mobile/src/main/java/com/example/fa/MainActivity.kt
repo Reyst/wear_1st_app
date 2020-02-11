@@ -8,7 +8,7 @@ import com.google.android.gms.tasks.Task
 import com.google.android.gms.wearable.*
 import kotlinx.android.synthetic.main.activity_main.*
 
-class MainActivity : AppCompatActivity() {
+class MainActivity : AppCompatActivity(), CapabilityClient.OnCapabilityChangedListener {
 
     private val capabilityClient: CapabilityClient by lazy { Wearable.getCapabilityClient(this)}
     private val dataClient: DataClient by lazy { Wearable.getDataClient(this)}
@@ -22,9 +22,20 @@ class MainActivity : AppCompatActivity() {
         super.onCreate(savedInstanceState)
         setContentView(R.layout.activity_main)
 
-        button.setOnClickListener { sendMessageToClock() }
+        button1.setOnClickListener { sendMessageToClock() }
+        button2.setOnClickListener { getCapabilityInfo() }
 
-        startWearApp()
+//        startWearApp()
+    }
+
+    private fun getCapabilityInfo() {
+
+        capabilityClient.getAllCapabilities(CapabilityClient.FILTER_REACHABLE).addOnCompleteListener {
+            it.result.orEmpty().entries.forEach { entry ->
+                Log.wtf("INSPECT", "key: ${entry.key} value: ${entry.value}")
+                showCapabilityInfo(entry.value)
+            }
+        }
 
     }
 
@@ -76,7 +87,33 @@ class MainActivity : AppCompatActivity() {
 
     }
 
+    override fun onStart() {
+        super.onStart()
+        capabilityClient.addListener(this, "TestCapability1")
+
+        capabilityClient.getCapability("TestCapability1", CapabilityClient.FILTER_REACHABLE)
+            .addOnCompleteListener {
+                val nodes = it.result?.nodes
+                if (nodes == null || nodes.isEmpty())
+                    startWearApp()
+            }
+    }
+
+    override fun onStop() {
+        capabilityClient.removeListener(this)
+        super.onStop()
+    }
+
+
     companion object {
         private const val COUNT_KEY = "com.example.key.count"
+    }
+
+    override fun onCapabilityChanged(info: CapabilityInfo) {
+        showCapabilityInfo(info)
+    }
+
+    private fun showCapabilityInfo(info: CapabilityInfo) {
+        Log.wtf("INSPECT", "\nCapability: ${info.name} nodes: ${info.nodes}")
     }
 }

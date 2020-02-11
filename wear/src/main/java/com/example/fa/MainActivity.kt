@@ -8,6 +8,7 @@ import kotlinx.android.synthetic.main.activity_main.*
 class MainActivity : WearableActivity() {
 
     private val wearClient: DataClient by lazy { Wearable.getDataClient(this)}
+    private val capabiltyClient: CapabilityClient by lazy { Wearable.getCapabilityClient(this)}
 
     override fun onCreate(savedInstanceState: Bundle?) {
         super.onCreate(savedInstanceState)
@@ -17,6 +18,18 @@ class MainActivity : WearableActivity() {
         setAmbientEnabled()
 
         wearClient.addListener { dataEventBuffer -> handleData(dataEventBuffer) }
+    }
+
+    override fun onStart() {
+        super.onStart()
+        capabiltyClient.addLocalCapability("TestCapability1")
+        capabiltyClient.addLocalCapability("TestCapability2")
+    }
+
+    override fun onStop() {
+        capabiltyClient.removeLocalCapability("TestCapability1")
+        capabiltyClient.removeLocalCapability("TestCapability2")
+        super.onStop()
     }
 
     private fun handleData(dataEvents: DataEventBuffer) {
