@@ -104,16 +104,15 @@ class MainActivity : AppCompatActivity(), CapabilityClient.OnCapabilityChangedLi
         super.onStop()
     }
 
-
-    companion object {
-        private const val COUNT_KEY = "com.example.key.count"
-    }
-
     override fun onCapabilityChanged(info: CapabilityInfo) {
         showCapabilityInfo(info)
     }
 
     private fun showCapabilityInfo(info: CapabilityInfo) {
         Log.wtf("INSPECT", "\nCapability: ${info.name} nodes: ${info.nodes}")
+    }
+
+    companion object {
+        private const val COUNT_KEY = "com.example.key.count"
     }
 }

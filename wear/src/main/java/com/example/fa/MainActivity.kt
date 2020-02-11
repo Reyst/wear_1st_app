@@ -2,6 +2,7 @@ package com.example.fa
 
 import android.os.Bundle
 import android.support.wearable.activity.WearableActivity
+import android.util.Log
 import com.google.android.gms.wearable.*
 import kotlinx.android.synthetic.main.activity_main.*
 
@@ -34,6 +35,9 @@ class MainActivity : WearableActivity() {
 
     private fun handleData(dataEvents: DataEventBuffer) {
         dataEvents.forEach { event ->
+
+            Log.wtf("INSPECT", "Event uri: ${event.dataItem?.uri}")
+
             // DataItem changed
             when (event.type) {
                 DataEvent.TYPE_CHANGED -> {
