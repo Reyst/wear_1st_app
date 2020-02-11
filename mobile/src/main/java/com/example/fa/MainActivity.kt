@@ -5,18 +5,14 @@ import android.util.Log
 import android.widget.Toast
 import androidx.appcompat.app.AppCompatActivity
 import com.ben.shared.*
-import com.google.android.gms.tasks.OnCompleteListener
-import com.google.android.gms.tasks.Task
 import com.google.android.gms.wearable.*
 import kotlinx.android.synthetic.main.activity_main.*
+import java.nio.charset.Charset
 
 class MainActivity : AppCompatActivity() {
 
     private val capabilityClient: CapabilityClient by lazy { Wearable.getCapabilityClient(this)}
-    private val dataClient: DataClient by lazy { Wearable.getDataClient(this)}
-    private val channelClient: ChannelClient by lazy { Wearable.getChannelClient(this)}
     private val messageClient: MessageClient by lazy { Wearable.getMessageClient(this)}
-    private val nodeClient: NodeClient by lazy { Wearable.getNodeClient(this)}
 
     private var counter: Int = 0
 
@@ -24,102 +20,73 @@ class MainActivity : AppCompatActivity() {
         super.onCreate(savedInstanceState)
         setContentView(R.layout.activity_main)
 
-        button.setOnClickListener { sendMessageToClock(MESSAGE_PATH_PHONE__COUNT) }
-
-        //startWearApp()
+        button.setOnClickListener {
+            sendMessageToClock(MESSAGE_PATH_PHONE_COUNT, byteArrayOf(counter.toByte()))
+            counter++
+        }
 
         sendMessageToClock(MESSAGE_PATH_PHONE_START)
     }
 
-    /*private fun startWearApp() {
-        nodeClient.connectedNodes.addOnCompleteListener {
-            if (it.isSuccessful) it.result?.forEach { node ->
-                Log.wtf("INSPECT", "For node: $node")
-                sendStartWearAppMessage(node)
-            }
-            else Log.e("INSPECT", it.exception?.message ?: "", it.exception)
-        }
+    private fun sendMessageToClock(msg: String, data: ByteArray? = null) {
 
+        val capabilityInfoTask = capabilityClient.getCapability(CAPABILITY_WEAR_APP, CapabilityClient.FILTER_REACHABLE)
+        capabilityInfoTask.addOnCompleteListener { task ->
+            if (task.isSuccessful()) {
+                task.getResult()?.let { capabilityInfo ->
+
+                    val nodeId = getNearbyNode(capabilityInfo)
+                    sendMsg(nodeId, msg, data)
+                    Log.d("INSPECT", ":::::: wearNodeId - $nodeId")
+                }
+            } else {
+                Toast.makeText(this@MainActivity, "capabilityInfoTask ERROR", Toast.LENGTH_LONG).show()
+            }
+        }
     }
 
-    private fun sendStartWearAppMessage(node: Node) {
+    private fun getNearbyNode(info: CapabilityInfo): String {
+        var id = ""
+        info.nodes.iterator().forEach {
+            if (it.isNearby)
+                return it.id
 
-        val emptyBody = ByteArray(1).apply { set(0, 0) }
+            id = it.id
+        }
+        return id
+    }
 
-        node.takeIf { it.id != null }
-            ?.id
-            ?.let { nodeId ->
-                messageClient.sendMessage(nodeId, "/start/app", emptyBody)
-                    .addOnCompleteListener { msgTask ->
-                        if (!msgTask.isSuccessful) {
-                            Log.e("INSPECT", "Error: ${msgTask.exception?.message}", msgTask.exception)
-                        }
-                    }
-            }
-    }*/
+    private fun sendMsg(nodeId: String, msg: String, bytes: ByteArray? = null) {
 
-    private fun sendMessageToClock(msg: String) {
+        val sendMessageTask = messageClient.sendMessage(nodeId, msg, bytes)
 
-        var phoneNodeId = ""
-
-        val capabilityInfoTask = capabilityClient.getCapability(CAPABILITY_PHONE_APP, CapabilityClient.FILTER_REACHABLE)
-        capabilityInfoTask.addOnCompleteListener(object : OnCompleteListener<CapabilityInfo> {
-            override fun onComplete(task: Task<CapabilityInfo>) {
-                Log.d("INSPECT", ":::::: capabilityInfoTask - onComplete")
-                if (task.isSuccessful()) {
-                    Log.d("INSPECT", ":::::: capabilityInfoTask - isSuccessful")
-                    task.getResult()?.let { capabilityInfo ->
-                        capabilityInfo.nodes.iterator().forEach {
-                            if (it.isNearby)
-                                phoneNodeId = it.id
-                        }
-
-                        Log.d("INSPECT", ":::::: phoneNodeId - $phoneNodeId")
-                        Log.d("INSPECT", ":::::: capabilityInfo.name - $capabilityInfo.name")
-
-                        val sendMessageTask =
-                            messageClient.sendMessage(phoneNodeId,
-                                msg,
-                                byteArrayOf(counter.toByte()))
-
-                        counter++
-
-                        sendMessageTask.addOnCompleteListener {
-                            val text = when {
-                                it.isCanceled -> "Canceled"
-                                it.isSuccessful -> "Success"
-                                else -> "Fail: ${it.exception?.message}"
-                            }
-
-                            Toast.makeText(this@MainActivity, text, Toast.LENGTH_LONG).show()
-                        }
-                    }
-
-                } else {
-                    Toast.makeText(this@MainActivity, "capabilityInfoTask ERROR", Toast.LENGTH_LONG).show()
-                }
-            }
-        })
-
-        /*val putDataReq: PutDataRequest = PutDataMapRequest.create("/count")
-            .apply { dataMap.putInt(COUNT_KEY, counter++) }
-            .asPutDataRequest()
-
-        val putDataTask: Task<DataItem> = dataClient.putDataItem(putDataReq)
-
-        putDataTask.addOnCompleteListener {
+        sendMessageTask.addOnCompleteListener {
             val text = when {
                 it.isCanceled -> "Canceled"
                 it.isSuccessful -> "Success"
                 else -> "Fail: ${it.exception?.message}"
             }
 
-            Toast.makeText(this, text, Toast.LENGTH_LONG).show()
-        }*/
-
+            Toast.makeText(this@MainActivity, text, Toast.LENGTH_LONG).show()
+        }
     }
 
-    companion object {
-        private const val COUNT_KEY = "com.example.key.count"
+    override fun onStart() {
+        super.onStart()
+        messageClient.addListener { messageEvent ->
+            if (messageEvent.path == MESSAGE_PATH_WEAR_CLEAR_COUNT) {
+                counter = 0
+                val msg = messageEvent.data.toString(Charset.defaultCharset())
+                this.runOnUiThread{
+                    Toast.makeText(this, msg, Toast.LENGTH_SHORT).show()
+                }
+                sendMsg(messageEvent.sourceNodeId, MESSAGE_PATH_PHONE_COUNT, byteArrayOf(counter.toByte()))
+            }
+        }
+    }
+
+    override fun onStop() {
+        super.onStop()
+        messageClient.removeListener {  }
     }
 }

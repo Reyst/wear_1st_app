@@ -14,6 +14,6 @@
 
 <resources>
     <string-array name="android_wear_capabilities">
-        <item>wear_app_runtime_permissions</item>
+        <item>phone_app_runtime_permissions</item>
     </string-array>
 </resources>

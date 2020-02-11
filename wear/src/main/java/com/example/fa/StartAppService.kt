@@ -21,13 +21,12 @@ class StartAppService: WearableListenerService()  {
             val intent = Intent(this, MainActivity::class.java)
             intent.addFlags(Intent.FLAG_ACTIVITY_NEW_TASK)
             startActivity(intent)
-        } else {
+        } else if (messageEvent.path == MESSAGE_PATH_PHONE_COUNT) {
             getMsg.invoke(messageEvent)
         }
     }
 
     companion object {
-        const val START_ACTIVITY_PATH = "/start/app"
         var getMsg: (msg: MessageEvent) -> Unit = {}
     }
 }

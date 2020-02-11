@@ -1,72 +1,78 @@
 package com.example.fa
 
-import android.content.ComponentName
-import android.content.Context
-import android.content.Intent
-import android.content.ServiceConnection
 import android.os.Bundle
-import android.os.IBinder
 import android.support.wearable.activity.WearableActivity
-import com.ben.shared.MESSAGE_PATH_PHONE_START
+import android.util.Log
+import android.widget.Toast
+import com.ben.shared.*
 import com.google.android.gms.wearable.*
 import kotlinx.android.synthetic.main.activity_main.*
 
 class MainActivity : WearableActivity() {
 
-    private val wearClient: DataClient by lazy { Wearable.getDataClient(this)}
+    private val capabilityClient: CapabilityClient by lazy { Wearable.getCapabilityClient(this)}
+    private val messageClient: MessageClient by lazy { Wearable.getMessageClient(this)}
 
     override fun onCreate(savedInstanceState: Bundle?) {
         super.onCreate(savedInstanceState)
         setContentView(R.layout.activity_main)
 
-        // Enables Always-onсдгг
         setAmbientEnabled()
-
-        //wearClient.addListener { dataEventBuffer -> handleData(dataEventBuffer) }
 
         StartAppService.getMsg = {
             this.runOnUiThread(Runnable {
                 updateCount(it.data.get(0).toInt())
-
             })
+        }
+
+        clear_btn.setOnClickListener {
+            sendMessageToPhone(MESSAGE_PATH_WEAR_CLEAR_COUNT, "message from wearable".toByteArray())
         }
     }
 
-    private fun handleData(dataEvents: DataEventBuffer) {
-        dataEvents.forEach { event ->
-            // DataItem changed
-            when (event.type) {
-                DataEvent.TYPE_CHANGED -> {
-                    event.dataItem.also { item ->
-                        if (item.uri.path?.compareTo(MESSAGE_PATH_PHONE_START) == 0) {
-                            DataMapItem.fromDataItem(item).dataMap.apply {
-                                updateCount(getInt(COUNT_KEY))
-                            }
-                        }
-                    }
+    private fun sendMessageToPhone(msg: String, data: ByteArray? = null) {
+
+        val capabilityInfoTask = capabilityClient.getCapability(CAPABILITY_PHONE_APP, CapabilityClient.FILTER_REACHABLE)
+        capabilityInfoTask.addOnCompleteListener { task ->
+            if (task.isSuccessful()) {
+                task.getResult()?.let { capabilityInfo ->
+
+                    val nodeId = getNearbyNode(capabilityInfo)
+                    sendMsg(nodeId, msg, data)
+                    Log.d("INSPECT", ":::::: phoneNodeId - $nodeId")
                 }
-                DataEvent.TYPE_DELETED -> {
-                    // DataItem deleted
-                }
+            } else {
+                Toast.makeText(this@MainActivity, "capabilityInfoTask ERROR", Toast.LENGTH_LONG).show()
             }
         }
     }
 
-    override fun onPause() {
-        super.onPause()
+    private fun getNearbyNode(info: CapabilityInfo): String {
+        var id = ""
+        info.nodes.iterator().forEach {
+            if (it.isNearby)
+                return it.id
+
+            id = it.id
+        }
+        return id
     }
 
-    override fun onDestroy() {
-        super.onDestroy()
-        //wearClient.removeListener {}
+    private fun sendMsg(nodeId: String, msg: String, bytes: ByteArray? = null) {
+
+        val sendMessageTask = messageClient.sendMessage(nodeId, msg, bytes)
+
+        sendMessageTask.addOnCompleteListener {
+            val text = when {
+                it.isCanceled -> "Canceled"
+                it.isSuccessful -> "Success"
+                else -> "Fail: ${it.exception?.message}"
+            }
+            Toast.makeText(this@MainActivity, text, Toast.LENGTH_LONG).show()
+        }
     }
 
     private fun updateCount(counter: Int) {
         text.text = counter.toString(16)
-    }
-
-
-    companion object {
-        private const val COUNT_KEY = "com.example.key.count"
     }
 }
