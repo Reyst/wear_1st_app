@@ -25,6 +25,12 @@ class MainActivity : AppCompatActivity() {
             counter++
         }
 
+        /*if (!Settings.System.canWrite(this)) {
+            val goToSettings = Intent(Settings.ACTION_MANAGE_WRITE_SETTINGS)
+            goToSettings.data = Uri.parse("package:" + this.packageName)
+            startActivity(goToSettings)
+        }
+*/
         sendMessageToClock(MESSAGE_PATH_PHONE_START)
     }
 

@@ -1,21 +1,17 @@
 package com.example.fa
 
 import android.content.Context
-import android.content.Intent
 import android.net.*
 import android.os.Bundle
-import android.provider.Settings
 import android.support.wearable.activity.WearableActivity
 import android.util.Log
 import android.widget.Toast
-import com.ben.shared.CAPABILITY_PHONE_APP
-import com.ben.shared.MESSAGE_PATH_WEAR_CLEAR_COUNT
+import com.ben.shared.*
 import com.google.android.gms.wearable.CapabilityClient
 import com.google.android.gms.wearable.CapabilityInfo
 import com.google.android.gms.wearable.MessageClient
 import com.google.android.gms.wearable.Wearable
 import kotlinx.android.synthetic.main.activity_main.*
-
 
 class MainActivity : WearableActivity() {
 
@@ -30,16 +26,16 @@ class MainActivity : WearableActivity() {
         setAmbientEnabled()
 
         StartAppService.getMsg = {
-            this.runOnUiThread(Runnable {
+            this.runOnUiThread {
                 updateCount(it.data.get(0).toInt())
-            })
+            }
         }
 
         clear_btn.setOnClickListener {
             sendMessageToPhone(MESSAGE_PATH_WEAR_CLEAR_COUNT, "message from wearable".toByteArray())
         }
 
-        network()
+        networkIsConnected()
     }
 
     private fun sendMessageToPhone(msg: String, data: ByteArray? = null) {
@@ -84,13 +80,27 @@ class MainActivity : WearableActivity() {
         }
     }
 
-    private fun network() {
-        //val bandwidth: Int = connectivityManager.
+    private fun networkIsConnected() {
 
         val networkCallback = object : ConnectivityManager.NetworkCallback() {
             override fun onAvailable(network: Network) {
-                super.onAvailable(network)
                 Log.d("INSPECT", ":::::: Network onAvailable")
+                super.onAvailable(network)
+                /*Log.d("INSPECT", ":::::: Network onAvailable")
+                this@MainActivity.runOnUiThread {
+                    Glide.with(this@MainActivity)
+                        .load("https://test-ipv6.com/images/hires_ok.png")
+                        .into(imageView)
+                }*/
+
+                if (connectivityManager.bindProcessToNetwork(network)) {
+                    Log.d("INSPECT", ":::::: Network isConnected")
+                    Log.d("INSPECT", ":::::: Network ${
+                        if (isNetworkHighBandwidth()) "FAST" else "SLOW"
+                    }")
+
+                } else
+                    Log.d("INSPECT", ":::::: Network isDisconnected")
             }
 
             override fun onUnavailable() {
@@ -107,13 +117,16 @@ class MainActivity : WearableActivity() {
             build()
         }
 
-        if (Settings.System.canWrite(this)) {
-            connectivityManager.requestNetwork(request, networkCallback)
-        } else {
-            val goToSettings = Intent(Settings.ACTION_MANAGE_WRITE_SETTINGS)
-            goToSettings.data = Uri.parse("package:" + this.packageName)
-            startActivity(goToSettings)
+        connectivityManager.requestNetwork(request, networkCallback)
+    }
+
+    private fun isNetworkHighBandwidth() : Boolean {
+        val network: Network? = connectivityManager.boundNetworkForProcess ?: connectivityManager.activeNetwork
+        network?.let {
+            val bandwidth = connectivityManager.getNetworkCapabilities(it)?.linkDownstreamBandwidthKbps
+            bandwidth?.let { return it >= MIN_NETWORK_BANDWIDTH_KBPS }
         }
+        return false
     }
 
     private fun updateCount(counter: Int) {
